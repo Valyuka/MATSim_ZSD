@@ -75,7 +75,8 @@ public class GenerateFromTrips {
                         addLegToPlan(populationFactory, plan);
                     } else if ((passenger.tripList.size() > 1) && tripIndex > 1){
                         Activity firstActivity = (Activity) person.getPlans().get(0).getPlanElements().get(0);
-                        Activity lastActivity = populationFactory.createActivityFromCoord(firstActivity.getType(), firstActivity.getCoord());
+                        Activity lastActivity = populationFactory.
+                                createActivityFromCoord(firstActivity.getType(), firstActivity.getCoord());
                         lastActivity.setEndTime(25 * 3600);
                         addLegToPlan(populationFactory, plan);
 
@@ -83,23 +84,12 @@ public class GenerateFromTrips {
                         } else {
                             if (!(stopMap.get(trip.endStopId) == null)){
                                 Stop endStop = (Stop) stopMap.get(trip.endStopId);
-                                Coord endStopCoord = endStop.getCoord();
-                                Coord transformedEndStopCoord = ct.transform(endStopCoord);
-                                Coord randomizedTransformedEndStopCoord = randomizeCoord(transformedEndStopCoord);
-                                Activity lastActivity = populationFactory.createActivityFromCoord("h", randomizedTransformedEndStopCoord);
-                                addLegToPlan(populationFactory, plan);
-                                plan.addActivity(lastActivity);
+                                addHomeActivityAtEndStop(ct, populationFactory, plan, endStop);
                             } else {
-
                                 Double randomStopIndexDouble = (stopList.size() * Math.random() - 0.5);
                                 int randomStopIndex = randomStopIndexDouble.intValue();
                                 Stop endStop = (Stop) stopList.get(randomStopIndex);
-                                Coord endStopCoord = endStop.getCoord();
-                                Coord transformedEndStopCoord = ct.transform(endStopCoord);
-                                Coord randomizedTransformedEndStopCoord = randomizeCoord(transformedEndStopCoord);
-                                Activity lastActivity = populationFactory.createActivityFromCoord("h", randomizedTransformedEndStopCoord);
-                                addLegToPlan(populationFactory, plan);
-                                plan.addActivity(lastActivity);
+                                addHomeActivityAtEndStop(ct, populationFactory, plan, endStop);
                             }
                         }
                     }
@@ -120,6 +110,16 @@ public class GenerateFromTrips {
 
         PopulationWriter populationWriter = new PopulationWriter(population);
         populationWriter.writeV5("output/gluedPopulationCar2018.xml");
+    }
+
+    private static void addHomeActivityAtEndStop(CoordinateTransformation ct, PopulationFactory populationFactory, Plan plan, Stop endStop) {
+        Coord endStopCoord = endStop.getCoord();
+        Coord transformedEndStopCoord = ct.transform(endStopCoord);
+        Coord randomizedTransformedEndStopCoord = randomizeCoord(transformedEndStopCoord);
+        Activity lastActivity = populationFactory.
+                createActivityFromCoord("h", randomizedTransformedEndStopCoord);
+        addLegToPlan(populationFactory, plan);
+        plan.addActivity(lastActivity);
     }
 
     private static void deleteFaultyPlans(Population population) {
