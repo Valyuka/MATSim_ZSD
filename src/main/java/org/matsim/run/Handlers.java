@@ -23,11 +23,10 @@ public class Handlers implements ActivityEndEventHandler, ActivityStartEventHand
     @Override
     public void handleEvent(ActivityEndEvent event) {
         if (agentsStat.getListObservedAgents().contains(event.getPersonId())) {
-            agentsStat.checkAndRecordAgent(
+            agentsStat.RecordToMapStatBook(
                     "Start",
                     event.getPersonId(),
-                    agentsStat.getNetwork().getLinks().get(event.getLinkId()).getCoord(),
-                    event.getTime()
+                    agentsStat.getNetwork().getLinks().get(event.getLinkId()).getCoord()
             );
         }
     }
@@ -35,22 +34,22 @@ public class Handlers implements ActivityEndEventHandler, ActivityStartEventHand
     @Override
     public void handleEvent(ActivityStartEvent event) {
         if (agentsStat.getListObservedAgents().contains(event.getPersonId())) {
-            agentsStat.checkAndRecordAgent(
+            agentsStat.RecordToMapStatBook(
                     "End",
                     event.getPersonId(),
-                    agentsStat.getNetwork().getLinks().get(event.getLinkId()).getCoord(),
-                    event.getTime()
+                    agentsStat.getNetwork().getLinks().get(event.getLinkId()).getCoord()
             );
         }
+        agentsStat.reportConstructor(event.getPersonId(), event.getTime());
     }
 
     @Override
     public void handleEvent(LinkEnterEvent event) {
         //If the car is traveling along the link, it is added to the list
         if (event.getLinkId().equals(Id.create(WRD_link_forward_direction, Link.class))) {
-            agentsStat.addAgentOnWRD(true, event.getVehicleId());
+            agentsStat.RecordToMapStatBook("ForwardAlongWRD", event.getVehicleId());
         } else if (event.getLinkId().equals(Id.create(WRD_link_opposite_direction, Link.class))) {
-            agentsStat.addAgentOnWRD(false, event.getVehicleId());
+            agentsStat.RecordToMapStatBook("OppositeAlongWRD", event.getVehicleId());
         }
     }
 
@@ -62,6 +61,6 @@ public class Handlers implements ActivityEndEventHandler, ActivityStartEventHand
 
     @Override
     public void reset(int iteration) {
-        agentsStat.clearAgentsOnWRD();
+
     }
 }

@@ -18,6 +18,8 @@
  * *********************************************************************** */
 package org.matsim.run;
 
+import com.google.common.collect.HashBasedTable;
+import com.google.common.collect.Table;
 import com.vividsolutions.jts.geom.MultiPolygon;
 import org.geotools.referencing.CRS;
 import org.matsim.api.core.v01.Scenario;
@@ -103,6 +105,9 @@ abstract public class RunMatsim {
 
 		//Start simulation
 		controler.run();
+
+		//Write data to csv. True = Append to file, false = Overwrite
+		WriteToCSV.run(agentsStat.getReportTable(), "stat.csv", false);
 	}
 
 
