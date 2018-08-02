@@ -68,7 +68,8 @@ public class GenerateFromTrips {
                         isLastActivity = true;
                     }
                     activityType = determineActivityType(passenger, tripIndex, trip);
-                    Activity activity = populationFactory.createActivityFromCoord(activityType, randomizedTransformedCoord);
+                    Activity activity = populationFactory.
+                            createActivityFromCoord(activityType, randomizedTransformedCoord);
                     activity.setEndTime(trip.startTime);
                     plan.addActivity(activity);
                     if (!isLastActivity){
