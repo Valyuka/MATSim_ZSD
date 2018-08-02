@@ -19,9 +19,7 @@ import org.matsim.vehicles.Vehicle;
 import org.opengis.referencing.operation.MathTransform;
 import org.opengis.referencing.operation.TransformException;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 public class AgentsStat {
     private Network network;
@@ -31,12 +29,11 @@ public class AgentsStat {
     private static ArrayList<Id<Person>> list_observed_agents = new ArrayList<>();
     private static GeometryFactory geometryFactory = JTSFactoryFinder.getGeometryFactory();
     private Map<Integer, MultiPolygon> MultiPolygonsMap;
-    private Table<String, Integer, Integer> StatTable = HashBasedTable.create();
 
-    private Map<String, ArrayList<Id<Vehicle>>> MapOfVehicleAlongWRD = new HashMap<String, ArrayList<Id<Vehicle>>>(){{
-       put("forward", new ArrayList<Id<Vehicle>>());
-       put("opposite", new ArrayList<Id<Vehicle>>());
-    }};
+
+
+    private Table<String, Integer, Integer> ReportTable = HashBasedTable.create();
+    private HashMap<String, HashSet<Id>> BookOfEvents = new HashMap<String, HashSet<Id>>();
 
     //Class constructor
     AgentsStat(Scenario scenario, Map<Integer, MultiPolygon> MultiPolygonsMap, MathTransform transform) {
@@ -48,28 +45,18 @@ public class AgentsStat {
 
         //Initialization StatTable in the class constructor
         for (Integer i = 1; i <= NumberOfPolygons; i++) {
-            for (Integer j = 1; j<=24; j++) {
-                StatTable.put("StartPoint"+i+"WithWRD", j, 0);
-                StatTable.put("StartPoint"+i+"WithoutWRD", j, 0);
-                StatTable.put("EndPoint"+i+"WithWRD", j, 0);
-                StatTable.put("EndPoint"+i+"WithoutWRD", j, 0);
-            }
+            BookOfEvents.put(String.format("StartPoint%d", i), new HashSet<Id>());
+            BookOfEvents.put(String.format("EndPoint%d", i), new HashSet<Id>());
         }
+        BookOfEvents.put(String.format("ForwardAlongWRD"), new HashSet<Id>());
+        BookOfEvents.put(String.format("OppositeAlongWRD"), new HashSet<Id>());
     }
 
-    //This method is responsible for fixing the agents who drove along the WRD
-    public void addAgentOnWRD(boolean direction, Id<Vehicle> vehicleId) {
-        if (direction) {
-            MapOfVehicleAlongWRD.get("forward").add(vehicleId);
-        } else {
-            MapOfVehicleAlongWRD.get("opposite").add(vehicleId);
+    //Full remove agent from BookOfEvents
+    private void removeAgentFromBook(Id id){
+        for (String key:BookOfEvents.keySet()) {
+            BookOfEvents.get(key).remove(id);
         }
-    }
-
-    //Clear the list of agents passing by the Western Rapid Diameter
-    public void clearAgentsOnWRD(){
-        MapOfVehicleAlongWRD.get("forward").clear();
-        MapOfVehicleAlongWRD.get("opposite").clear();
     }
 
     //Network Getter
@@ -82,19 +69,23 @@ public class AgentsStat {
         return list_observed_agents;
     }
 
+    public Table<String, Integer, Integer> getReportTable() {
+        return ReportTable;
+    }
+
     private boolean checkAgentOnWRD(Id<Person> personId) {
-        for (String key:MapOfVehicleAlongWRD.keySet()) {
-            if (MapOfVehicleAlongWRD.get(key).contains(personId)) {
-                return true;
-            }
+        if (BookOfEvents.get("ForwardAlongWRD").contains(personId) | BookOfEvents.get("OppositeAlongWRD").contains(personId)) {
+            return true;
         }
         return false;
     }
 
-    public Integer checkZone(Coord coord) {
+    private Integer checkZone(Coord coord) {
         Point point;
+        //If SHP Coordinate System equals Network Coordinate System then just create point WITHOUT transformation
         if (RunMatsim.getSHPCoordSystem().equals(RunMatsim.getNetworkCoordSystem())) {
             point = geometryFactory.createPoint(new Coordinate(coord.getX(), coord.getY()));
+        //Else create point WITH transformation Network Coodinate System to SHP Coordinate System
         } else {
             point = geometryFactory.createPoint(new Coordinate(coord.getX(), coord.getY()));
             try {
@@ -130,36 +121,59 @@ public class AgentsStat {
 
     private Integer timeConverter(double Time){
         if (Time<(24*3600)) {
-            return (int) Time /3600;
+            return (int) Time/3600;
         } else {
             return (int) (Time%(24*3600))/3600;
         }
     }
 
-    public void checkAndRecordAgent(String eventType, Id<Person> personId, Coord coord, double Time) {
-        Integer zone = checkZone(coord);
-        if (zone > 0 && checkAgentOnWRD(personId)){
-            Integer timeconv = timeConverter(Time);
-            if (eventType.equals("Start")) {
-                Integer value = StatTable.get("StartPoint"+zone+"WithWRD", timeconv);
-                value++;
-                StatTable.put("StartPoint"+zone+"WithWRD", timeConverter(Time), value);
-            } else if (eventType.equals("End")) {
-                Integer value = StatTable.get("EndPoint"+zone+"WithWRD", timeconv);
-                value++;
-                StatTable.put("EndPoint"+zone+"WithWRD", timeConverter(Time), value);
-            }
-        } else if (zone > 0 && !checkAgentOnWRD(personId)){
-            Integer timeconv = timeConverter(Time);
-            if (eventType.equals("Start")) {
-                Integer value = StatTable.get("StartPoint"+zone+"WithoutWRD", timeconv);
-                value++;
-                StatTable.put("StartPoint"+zone+"WithoutWRD", timeConverter(Time), value);
-            } else if (eventType.equals("End")) {
-                Integer value = StatTable.get("EndPoint"+zone+"WithoutWRD", timeconv);
-                value++;
-                StatTable.put("EndPoint"+zone+"WithoutWRD", timeConverter(Time), value);
+    private void RecordToReportTable(String keyName, Integer Time) {
+        if(!ReportTable.containsRow(keyName) ){
+            for (Integer i = 0; i<=23; i++) {
+                ReportTable.put(keyName, i, 0);
             }
         }
+        Integer value = ReportTable.get(keyName, Time);
+        value++;
+        ReportTable.put(keyName, Time, value);
+    }
+
+    public void RecordToMapStatBook(String eventType, Id<Person> personId, Coord coord) {
+        Integer zone = checkZone(coord);
+        if (zone !=0) {
+            if (eventType.equals("Start")) {
+                BookOfEvents.get(String.format("StartPoint%d", zone)).add(personId);
+            } else if (eventType.equals("End")) {
+                BookOfEvents.get(String.format("EndPoint%d", zone)).add(personId);
+            }
+        }
+    }
+
+    public void RecordToMapStatBook(String eventType, Id<Vehicle> vehicleId) {
+        if (BookOfEvents.containsKey(eventType)){
+            BookOfEvents.get(eventType).add(vehicleId);
+        }
+    }
+    /**----
+    This method allows you to create various reports from BookOfEvents
+     --*/
+    public void reportConstructor(Id id, double Time){
+        //Подсчет числа агентов, которые стартовали в точке 1 + ЗСД
+        if(BookOfEvents.get("StartPoint1").contains(id) & checkAgentOnWRD(id)) {
+            RecordToReportTable("StartPoint1WithWRD", timeConverter(Time));
+        }
+
+        //Подсчет числа агентов, которые закончили в точке 2 + ЗСД
+        if(BookOfEvents.get("EndPoint1").contains(id) & checkAgentOnWRD(id)) {
+            RecordToReportTable("EndPoint1WithWRD", timeConverter(Time));
+        }
+
+        //Подсчет числа агентов, которые закончили в точке 1 или 2 + ЗСД
+        if((BookOfEvents.get("EndPoint1").contains(id) | BookOfEvents.get("EndPoint2").contains(id)) & checkAgentOnWRD(id)) {
+            RecordToReportTable("EndPoint1Or2WithWRD", timeConverter(Time));
+        }
+
+        //Необходимо вызывать в конце этот метод, чтобы удалять агентов занесенных в отчет
+        removeAgentFromBook(id);
     }
 }
