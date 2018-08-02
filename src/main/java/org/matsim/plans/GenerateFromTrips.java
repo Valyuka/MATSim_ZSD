@@ -25,8 +25,8 @@ public class GenerateFromTrips {
         String inputCRS = "EPSG:4326"; // WGS84
         String outputCRS = "EPSG:32635";
         CoordinateTransformation ct = TransformationFactory.getCoordinateTransformation(inputCRS, outputCRS);
-        String inputStations = "input/trips/stops.csv";
-        String inputTrips = "input/trips/TRIPS.csv";
+        String inputStations = "input/inputForPlans/tripsFromValidations/stops.csv";
+        String inputTrips = "input/inputForPlans/tripsFromValidations/TRIPS.csv";
         Map stopMap = new HashMap();
         List stopList = new ArrayList<>();
         Map<String, Passenger> passengerMap = new HashMap();
@@ -132,9 +132,8 @@ public class GenerateFromTrips {
                 removedFaultyPlans++;
             } else {
                 PlanElement planElement = plan.getPlanElements().get(plan.getPlanElements().size() - 1);
-                PlanElement planElement1 = plan.getPlanElements().get(plan.getPlanElements().size() - 1);
 
-                if (planElement instanceof Leg || planElement1 instanceof Leg) {
+                if (planElement instanceof Leg) {
                     population.removePerson(person.getId());
                     removedFaultyPlans++;
                 }
@@ -182,8 +181,8 @@ public class GenerateFromTrips {
     }
 
     private static Coord randomizeCoord(Coord transformedCoord) {
-        double newX = transformedCoord.getX() + (( (-1) + (Math.random() * 2)) * 5 * (5 / 3.6));
-        double newY = transformedCoord.getY() + (( (-1) + (Math.random() * 2)) * 5 * (5 / 3.6));
+        double newX = transformedCoord.getX() + (( (Math.random() * (5 * 60 * (5 / 3.6)))));
+        double newY = transformedCoord.getY() + (( (Math.random() * (5 * 60 * (5 / 3.6)))));
         Coord coord = CoordUtils.createCoord(newX, newY);
         return coord;
     }
@@ -201,20 +200,18 @@ public class GenerateFromTrips {
                 String[] startTimeRaw = items[1].split(":");
                 int startHour = Integer.parseInt(startTimeRaw[0]);
                 int startMinute = Integer.parseInt(startTimeRaw[1]);
-                double startTime = startHour * 3600 + startMinute * 60 - (Math.random() * 10) - AVERAGE_EGRESS_TIME;
+                double startTime = startHour * 3600 + startMinute * 60 - (Math.random() * 10 * 60) - (5 + (Math.random() * 5 * 60));
                 String startStopId = items[2];
                 String endStopId = items[4];
                 trip.setStartStopId(startStopId);
                 trip.setStartTime(startTime);
                 trip.setEndStopId(endStopId);
 
-                boolean alreadyHasTrips = false;
+
                 if (passengerMap.containsKey(cardId)){
                     Passenger passenger = (Passenger) passengerMap.get(cardId);
                     passenger.tripList.add(trip);
-                    alreadyHasTrips = true;
-                }
-                if (!alreadyHasTrips) {
+                } else {
                     Passenger newPassenger = new Passenger(cardId);
                     newPassenger.tripList.add(trip);
                     passengerMap.put(newPassenger.getPassengerId(), newPassenger);
@@ -239,7 +236,7 @@ public class GenerateFromTrips {
         Iterator iterator = passengerMap.keySet().iterator();
         while (iterator.hasNext()){
             Passenger passenger = (Passenger) passengerMap.get(iterator.next());
-            if (passenger.tripList.size() > 2){
+            if (passenger.tripList.size() > 1){
                 for (int i = 0; i < passenger.tripList.size() - 2; i++){
                     Trip currentTrip = (Trip) passenger.tripList.get(i);
                     Trip nextTrip = (Trip) passenger.tripList.get(i+1);
